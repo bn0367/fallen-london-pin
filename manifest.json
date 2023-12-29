@@ -1,0 +1,15 @@
+{
+    "manifest_version": 2,
+    "name": "Fallen London Storylets Pin",
+    "version": "1.0",
+  
+    "description": "Adds the ability to pin storylets in fallen london.",
+  
+    "content_scripts": [
+      {
+        "matches": ["*://*.fallenlondon.com/*"],
+        "js": ["pin.js"]
+      }
+    ]
+  }
+  
