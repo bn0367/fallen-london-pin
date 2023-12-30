@@ -4,6 +4,8 @@ let PINS = [];
 
 let LOCKED = false;
 
+let UPDATED = true;
+
 let MAX_RETRY = 2;
 
 async function removePin(id, retry = 0) {
@@ -11,10 +13,12 @@ async function removePin(id, retry = 0) {
         return;
     }
     if (!LOCKED) {
+        LOCKED = true;
         let pins = await browser.storage.local.get("fl-pins")
         let arr = pins["fl-pins"];
         arr.delete(id);
         await browser.storage.local.set({ "fl-pins": arr });
+        LOCKED = false;
     } else {
         setTimeout(() => {
             addPin(id, retry + 1)
@@ -27,14 +31,15 @@ async function addPin(id, retry = 0) {
         return;
     }
     if (!LOCKED) {
+        LOCKED = true;
         let pins = await browser.storage.local.get("fl-pins");
         let arr = pins["fl-pins"];
         arr.add(id);
         await browser.storage.local.set({ "fl-pins": arr });
-
+        LOCKED = false;
     } else {
         setTimeout(() => {
-            addPin(id, retry + 1)
+            removePin(id, retry + 1)
         })
     }
 }
