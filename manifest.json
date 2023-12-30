@@ -12,6 +12,6 @@
       }
     ],
 
-    "permissions": ["storage"]
+    "permissions": ["storage", "webRequest"]
   }
   

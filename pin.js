@@ -8,12 +8,44 @@ let UPDATED = true;
 
 let MAX_RETRY = 2;
 
+const mutationObserver = new MutationObserver((mutations, observer) => {
+    sortStorylets();
+    addButtons();
+});
+
+async function sortStorylets() {
+    mutationObserver.disconnect();
+    let pins = await browser.storage.local.get("fl-pins");
+    pins = pins["fl-pins"];
+    let containers = document.getElementsByClassName("tab-content__bordered-container");
+    if(containers.length < 1) {
+        return;
+    }
+    let allChildren = Array.from(containers[0].childNodes);
+    let reordered = [];
+    let postamble = [];
+    reordered.push(allChildren.shift());
+    reordered.push(allChildren.shift());
+    for (let child of allChildren) {
+        let id = child.attributes["data-branch-id"].nodeValue;
+        if (pins.has(id)) {
+            reordered.push(child);
+        } else {
+            postamble.push(child);
+        }
+    }
+    reordered = reordered.concat(postamble);
+    document.getElementsByClassName("tab-content__bordered-container")[0].replaceChildren(...reordered);
+    mutationObserver.observe(document, { childList: true, subtree: true });
+}
+
 async function removePin(id, retry = 0) {
     if (retry === MAX_RETRY) {
         return;
     }
     if (!LOCKED) {
         LOCKED = true;
+        UPDATED = true;
         let pins = await browser.storage.local.get("fl-pins")
         let arr = pins["fl-pins"];
         arr.delete(id);
@@ -32,6 +64,7 @@ async function addPin(id, retry = 0) {
     }
     if (!LOCKED) {
         LOCKED = true;
+        UPDATED = true;
         let pins = await browser.storage.local.get("fl-pins");
         let arr = pins["fl-pins"];
         arr.add(id);
@@ -44,16 +77,25 @@ async function addPin(id, retry = 0) {
     }
 }
 
+let cache = new Set();
+
 async function checkPin(id) {
-    let pins = await browser.storage.local.get("fl-pins");
-    if (!("fl-pins" in pins)) {
-        return false;
+    if (UPDATED) {
+        UPDATED = false;
+        let pins = await browser.storage.local.get("fl-pins");
+        if (!("fl-pins" in pins)) {
+            return false;
+        }
+        cache = pins["fl-pins"];
+        return cache.has(id);
+    } else {
+        return cache.has(id);
     }
-    return pins["fl-pins"].has(id);
+
 }
 
 async function addButtons() {
-    let existingButtons = document.querySelectorAll(".fa-thumb-tack");
+    let existingButtons = document.getElementsByClassName("fa-thumb-tack");
     if (existingButtons.length > 0) {
         return;
     }
@@ -62,8 +104,9 @@ async function addButtons() {
     for (let sibling of buttonSiblings) {
         let newButton = document.createElement("div");
         let id = sibling.parentElement.parentElement.parentElement.attributes["data-branch-id"].nodeValue;
+        let initialStatus = await checkPin(id);
         newButton.className = "branch__plan-buttonlet";
-        newButton.innerHTML = `<button aria-label="Pin this storylet" class="buttonlet-container" type="button"><span class="buttonlet fa-stack fa-lg buttonlet-enabled  buttonlet-plan" title="Pin this storylet"><span class="fa fa-circle fa-stack-2x"></span><span class="fa fa-inverse fa-stack-1x fa-thumb-tack buttonlet--plan"></span><span class="u-visually-hidden">plan</span></span></button>`;
+        newButton.innerHTML = `<button aria-label="Pin this storylet" class="buttonlet-container" type="button"><span class="buttonlet fa-stack fa-lg buttonlet-enabled  buttonlet-plan" title="Pin this storylet"><span class="fa fa-circle fa-stack-2x"></span><span class="fa fa-inverse fa-stack-1x fa-thumb-tack buttonlet--${initialStatus ? "active-" : ""}plan"></span><span class="u-visually-hidden">plan</span></span></button>`;
         newButton.onclick = async () => {
             let icon = newButton.getElementsByClassName("fa-thumb-tack")[0];
             let status = await checkPin(id);
@@ -71,21 +114,23 @@ async function addButtons() {
                 await addPin(id);
                 icon.classList.remove("buttonlet--plan");
                 icon.classList.add("buttonlet--active-plan");
+                sortStorylets();
             } else {
                 await removePin(id);
                 icon.classList.remove("buttonlet--active-plan");
                 icon.classList.add("buttonlet--plan");
+                sortStorylets();
             }
         }
         sibling.parentElement.insertBefore(newButton, sibling);
     }
 }
 
-const mutationObserver = new MutationObserver((mutation, observer) => {
-    addButtons();
-});
 
-browser.storage.local.set({"fl-pins": new Set()}).then((r, e) => {
-    mutationObserver.observe(document, { attributes: true, childList: true, subtree: true });
-});
+browser.storage.local.get("fl-pins").then((r, e) => {
+    if (!("fl-pins" in r)) {
+        browser.storage.local.set({ "fl-pins": new Set() });
+    }
+})
 
+mutationObserver.observe(document, { childList: true, subtree: true });
