@@ -10,6 +10,8 @@
         "matches": ["*://*.fallenlondon.com/*"],
         "js": ["pin.js"]
       }
-    ]
+    ],
+
+    "permissions": ["storage"]
   }
   
