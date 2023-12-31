@@ -1,5 +1,12 @@
 // sort in tab-content__bordered-container
 
+// requests:
+/**
+ * storylet
+ * goback
+ * begin
+ */
+
 let PINS = [];
 
 let LOCKED = false;
@@ -8,17 +15,34 @@ let UPDATED = true;
 
 let MAX_RETRY = 2;
 
-const mutationObserver = new MutationObserver((mutations, observer) => {
+/*const mutationObserver = new MutationObserver((mutations, observer) => {
     sortStorylets();
     addButtons();
-});
+});*/
 
+function request_listener(details) {
+    console.log("listened");
+    let filter = browser.webRequest.filterResponseData(details.requestId);
+    let decoder = new TextDecoder("utf-8");
+    let encoder = new TextEncoder();
+    filter.ondata = event => {
+        let str = decoder.decode(event.data, { stream: true });
+        console.log(str);
+        filter.write(encoder.encode(str));
+        filter.disconnect();
+    }
+
+    return {};
+}
+
+browser.webRequest.onBeforeRequest.addListener(request_listener, { urls: ["https://api.fallenlondon.com/*"], types: ["main_frame"] });
+console.log("did load");
 async function sortStorylets() {
     mutationObserver.disconnect();
     let pins = await browser.storage.local.get("fl-pins");
     pins = pins["fl-pins"];
     let containers = document.getElementsByClassName("tab-content__bordered-container");
-    if(containers.length < 1) {
+    if (containers.length < 1) {
         return;
     }
     let allChildren = Array.from(containers[0].childNodes);
